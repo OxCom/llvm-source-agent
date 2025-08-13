@@ -1,0 +1,9 @@
+llama-index
+llama-index-llms-ollama
+llama-index-embeddings-ollama
+langchain
+chromadb
+streamlit
+python-dotenv
+watchdog
+sentence-transformers

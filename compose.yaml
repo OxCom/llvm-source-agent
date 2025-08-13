@@ -1,0 +1,71 @@
+services:
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ./llm:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    ports:
+      - 11434:11434
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-pull:
+    image: ollama/ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        ollama pull deepseek-coder
+        ollama pull codellama:7b
+        ollama pull codellama:13b
+        ollama pull all-minilm:l6-v2
+    volumes:
+      - ./llm:/root/.ollama
+    restart: "no"
+
+  ollama-index:
+    build: .
+    volumes:
+      - ./source:/app/source
+      - ./index:/app/index
+    env_file:
+      - .env
+    command: python /app/code/watch_and_index.py
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+
+  code-assistant:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./source:/app/source
+      - ./index:/app/index
+    env_file:
+      - .env
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
+      ollama-index:
+        condition: service_started
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434

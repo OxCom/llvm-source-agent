@@ -1,0 +1,6 @@
+.idea/
+.venv/
+index/
+source/
+cache/
+llm/
