@@ -9,6 +9,8 @@ index_model_name = os.getenv("INDEX_MODEL_NAME", "all-minilm:l6-v2")
 st.set_page_config(page_title="AI Code Assistant", layout="wide")
 st.title("🤖 Local AI code assistant")
 
+st._config.set_option('server.enableCORS', False)
+
 query = st.text_area("Request:", height=200)
 
 if st.button("🔍 Ask") and query.strip():
