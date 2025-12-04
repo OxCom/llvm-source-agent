@@ -20,8 +20,8 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
+    env_file:
+      - .env
     entrypoint:
       - /bin/bash
       - -c
@@ -49,8 +49,6 @@ services:
       ollama-pull:
         condition: service_completed_successfully
     restart: unless-stopped
-    environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
 
   code-assistant:
     build: .
@@ -68,5 +66,3 @@ services:
         condition: service_completed_successfully
       ollama-index:
         condition: service_started
-    environment:
-      - OLLAMA_BASE_URL=http://ollama:11434

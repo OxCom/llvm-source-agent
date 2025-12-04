@@ -22,6 +22,12 @@ model_name = os.getenv("MODEL_NAME", "codellama:7b")
 index_model_name = os.getenv("INDEX_MODEL_NAME", "all-minilm:l6-v2")
 ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+# Default file extensions to index
+DEFAULT_EXTS = ".lua,.xml,.txt,.cfg,.c,.cpp,.h,.hpp,.py,.js,.java,.cs,.md,.json,.yaml,.yml,.sh,.bat,.ini,.conf,.rst"
+required_exts_str = os.getenv("REQUIRED_EXTS", DEFAULT_EXTS)
+required_exts = [ext.strip() if ext.strip().startswith('.') else f'.{ext.strip()}'
+                 for ext in required_exts_str.split(',') if ext.strip()] if required_exts_str else []
+
 # Configure LlamaIndex settings
 embed_model = OllamaEmbedding(model_name=index_model_name, base_url=ollama_base_url, embed_batch_size=128)
 llm = Ollama(model=model_name, base_url=ollama_base_url)
@@ -61,16 +67,15 @@ class CodeFileHandler(FileSystemEventHandler):
         try:
             # Load documents from source directory with file extension filtering
             # Only index text-based files, skip binaries
-            reader = SimpleDirectoryReader(
-                self.source_path,
-                recursive=True,
-                exclude_hidden=True,
-                required_exts=[
-                    ".lua", ".xml", ".txt", ".cfg", ".c", ".cpp", ".h", ".hpp",
-                    ".py", ".js", ".java", ".cs", ".md", ".json", ".yaml", ".yml",
-                    ".sh", ".bat", ".ini", ".conf"
-                ]
-            )
+            reader_kwargs = {
+                'input_dir': self.source_path,
+                'recursive': True,
+                'exclude_hidden': True
+            }
+            if required_exts:
+                reader_kwargs['required_exts'] = required_exts
+
+            reader = SimpleDirectoryReader(**reader_kwargs)
             documents = reader.load_data()
 
             print(f"📄 Loaded {len(documents)} documents")
@@ -113,16 +118,15 @@ def initial_index_build():
     """Build the initial index if it doesn't exist."""
     if not os.path.exists(storage_path) or not os.listdir(storage_path):
         print(f"📁 Building initial index from: {project_path}")
-        reader = SimpleDirectoryReader(
-            project_path,
-            recursive=True,
-            exclude_hidden=True,
-            required_exts=[
-                ".lua", ".xml", ".txt", ".cfg", ".c", ".cpp", ".h", ".hpp",
-                ".py", ".js", ".java", ".cs", ".md", ".json", ".yaml", ".yml",
-                ".sh", ".bat", ".ini", ".conf"
-            ]
-        )
+        reader_kwargs = {
+            'input_dir': project_path,
+            'recursive': True,
+            'exclude_hidden': True
+        }
+        if required_exts:
+            reader_kwargs['required_exts'] = required_exts
+
+        reader = SimpleDirectoryReader(**reader_kwargs)
         documents = reader.load_data()
         print(f"📄 Loaded {len(documents)} documents for indexing")
         index = VectorStoreIndex.from_documents(documents, embed_model=embed_model, show_progress=True)
