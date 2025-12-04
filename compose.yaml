@@ -30,6 +30,7 @@ services:
         ollama pull codellama:7b
         ollama pull codellama:13b
         ollama pull all-minilm:l6-v2
+        ollama pull nomic-embed-text
     volumes:
       - ./llm:/root/.ollama
     restart: "no"
@@ -54,7 +55,7 @@ services:
   code-assistant:
     build: .
     ports:
-      - "8501:8501"
+      - "8080:8501"
     volumes:
       - ./source:/app/source
       - ./index:/app/index

@@ -1,3 +1,9 @@
+# ignore project related folders
+source/
+llm/
+index/
+
+
 # Ignore unnecessary files to speed up build context
 __pycache__/
 *.pyc

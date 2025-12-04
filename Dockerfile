@@ -1,6 +1,6 @@
 FROM python:3.11-slim AS builder
 
-COPY requirements.txt ./
+COPY ./ ./
 
 RUN mkdir -p /app/wheels \
     && pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt

@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import logging
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -21,11 +23,14 @@ index_model_name = os.getenv("INDEX_MODEL_NAME", "all-minilm:l6-v2")
 ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Configure LlamaIndex settings
-embed_model = OllamaEmbedding(model_name=index_model_name, base_url=ollama_base_url)
+embed_model = OllamaEmbedding(model_name=index_model_name, base_url=ollama_base_url, embed_batch_size=128)
 llm = Ollama(model=model_name, base_url=ollama_base_url)
 
 Settings.llm = llm
 Settings.embed_model = embed_model
+Settings.chunk_size = 2048  # Match query.py settings for consistency
+Settings.chunk_overlap = 200  # Some overlap to maintain context
+Settings.num_workers = os.cpu_count() * 2 # Parallelism for faster indexing
 
 class CodeFileHandler(FileSystemEventHandler):
     """Handler for file system events that rebuilds the index when code files change."""
@@ -54,11 +59,24 @@ class CodeFileHandler(FileSystemEventHandler):
 
         print(f"🔄 Rebuilding index due to file changes...")
         try:
-            # Load documents from source directory
-            documents = SimpleDirectoryReader(self.source_path).load_data()
+            # Load documents from source directory with file extension filtering
+            # Only index text-based files, skip binaries
+            reader = SimpleDirectoryReader(
+                self.source_path,
+                recursive=True,
+                exclude_hidden=True,
+                required_exts=[
+                    ".lua", ".xml", ".txt", ".cfg", ".c", ".cpp", ".h", ".hpp",
+                    ".py", ".js", ".java", ".cs", ".md", ".json", ".yaml", ".yml",
+                    ".sh", ".bat", ".ini", ".conf"
+                ]
+            )
+            documents = reader.load_data()
+
+            print(f"📄 Loaded {len(documents)} documents")
 
             # Create new index
-            index = VectorStoreIndex.from_documents(documents, embed_model=embed_model)
+            index = VectorStoreIndex.from_documents(documents, embed_model=embed_model, show_progress=True)
 
             # Persist the index
             index.storage_context.persist(persist_dir=self.index_path)
@@ -95,8 +113,19 @@ def initial_index_build():
     """Build the initial index if it doesn't exist."""
     if not os.path.exists(storage_path) or not os.listdir(storage_path):
         print(f"📁 Building initial index from: {project_path}")
-        documents = SimpleDirectoryReader(project_path).load_data()
-        index = VectorStoreIndex.from_documents(documents, embed_model=embed_model)
+        reader = SimpleDirectoryReader(
+            project_path,
+            recursive=True,
+            exclude_hidden=True,
+            required_exts=[
+                ".lua", ".xml", ".txt", ".cfg", ".c", ".cpp", ".h", ".hpp",
+                ".py", ".js", ".java", ".cs", ".md", ".json", ".yaml", ".yml",
+                ".sh", ".bat", ".ini", ".conf"
+            ]
+        )
+        documents = reader.load_data()
+        print(f"📄 Loaded {len(documents)} documents for indexing")
+        index = VectorStoreIndex.from_documents(documents, embed_model=embed_model, show_progress=True)
         index.storage_context.persist(persist_dir=storage_path)
         print(f"✅ Initial index created: {storage_path}")
     else:

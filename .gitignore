@@ -4,3 +4,6 @@ index/
 source/
 cache/
 llm/
+
+.env
+pip.conf
